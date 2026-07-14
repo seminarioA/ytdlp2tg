@@ -39,8 +39,16 @@ El caption tiene 3 bloques separados por línea vacía:
 - Stack: `docker-compose` en `/home/ubuntu/ytdlp-bot/`
 - Servicios: `tg-api` (local Telegram Bot API, límite 1.9GB), `ytdlp-bot`, `dozzle` (logs en :8080)
 - SSH: `ssh -i ~/.ssh/tmp_vps/oracle_vps_key ubuntu@170.9.4.149`
-- Deploy: `scp bot.py` → `docker-compose up -d --build ytdlp-bot`
+- Deploy via CI/CD: GitHub Actions build en CI → push a GHCR → CD hace pull en VPS (no build en VPS)
 - Puertos OCI: abrir en Security List del VCN, no solo en Docker
+- Repo: https://github.com/seminarioA/ytdlp2tg
+
+## Commits y GitHub
+
+- Nunca agregar `Co-Authored-By: Claude` ni ninguna forma de co-autoría de IA en commits
+- Nunca agregar el footer de Claude Code en PRs, issues o comentarios
+- Nunca usar emojis en commits, PRs o issues
+- Workflows separados: `ci.yml` (build + push a GHCR) y `cd.yml` (deploy al VPS via SSH)
 
 ## Lo que NO hacer
 
