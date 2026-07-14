@@ -22,6 +22,8 @@ services:
     environment:
       BOT_TOKEN: "${BOT_TOKEN}"
       TG_LOCAL_URL: "http://tg-api:8081"
+    volumes:
+      - ytdlp-config:/root/.config/yt-dlp
     depends_on:
       tg-api:
         condition: service_healthy
@@ -47,3 +49,4 @@ networks:
 
 volumes:
   tg-api-data:
+  ytdlp-config:

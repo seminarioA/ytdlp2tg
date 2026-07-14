@@ -179,6 +179,7 @@ async def _fetch_formats(url: str) -> list[tuple[int, int]]:
     cmd = [
         "yt-dlp", "--dump-json", "--no-playlist",
         "--extractor-args", "youtube:player_client=android_vr",
+        *(_is_youtube(url) and ["--username", "oauth2", "--password", ""] or []),
         url,
     ]
     try:
@@ -245,6 +246,10 @@ def _is_tiktok(url: str) -> bool:
     return "tiktok.com" in url or "vm.tiktok.com" in url
 
 
+def _is_youtube(url: str) -> bool:
+    return "youtube.com" in url or "youtu.be" in url
+
+
 async def _download_and_send(url: str, quality: str, msg, reply_to):
     is_audio = quality == "audio"
     fmt = "bestaudio[ext=m4a]/bestaudio" if is_audio else _fmt_for_height(int(quality))
@@ -256,6 +261,7 @@ async def _download_and_send(url: str, quality: str, msg, reply_to):
             *(["--merge-output-format", "mp4"] if not is_audio else []),
             "--no-playlist",
             "--extractor-args", "youtube:player_client=android_vr",
+            *(_is_youtube(url) and ["--username", "oauth2", "--password", ""] or []),
             "--write-info-json",
             "--newline",
             "-o", f"{tmpdir}/video.%(ext)s",

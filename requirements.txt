@@ -1,3 +1,4 @@
 python-telegram-bot==21.5
 yt-dlp
 curl_cffi
+yt-dlp-youtube-oauth2
