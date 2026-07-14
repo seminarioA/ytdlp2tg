@@ -12,7 +12,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-push:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,20 +45,3 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  deploy:
-    needs: build-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ubuntu
-          key: ${{ secrets.VPS_KEY }}
-          script: |
-            cd /home/ubuntu/ytdlp-bot
-            docker-compose pull ytdlp-bot
-            docker-compose up -d ytdlp-bot
