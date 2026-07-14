@@ -1,0 +1,49 @@
+services:
+  tg-api:
+    image: aiogram/telegram-bot-api:latest
+    environment:
+      TELEGRAM_API_ID: "${API_ID}"
+      TELEGRAM_API_HASH: "${API_HASH}"
+    command: --local --log-verbosity=0
+    volumes:
+      - tg-api-data:/home/user/data
+    restart: unless-stopped
+    networks:
+      - bot-net
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8081"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  ytdlp-bot:
+    image: ghcr.io/seminarioa/ytdlp2tg:latest
+    environment:
+      BOT_TOKEN: "${BOT_TOKEN}"
+      TG_LOCAL_URL: "http://tg-api:8081"
+    depends_on:
+      tg-api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - bot-net
+
+  dozzle:
+    image: amir20/dozzle:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./users.yml:/data/users.yml:ro
+    ports:
+      - "8080:8080"
+    environment:
+      DOZZLE_NO_ANALYTICS: "true"
+      DOZZLE_AUTH_PROVIDER: "simple"
+    restart: unless-stopped
+
+networks:
+  bot-net:
+    driver: bridge
+
+volumes:
+  tg-api-data:
