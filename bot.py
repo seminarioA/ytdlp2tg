@@ -33,6 +33,31 @@ QUALITIES = {
 }
 
 _PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%\s+of\s+([\d.]+)(MiB|KiB|GiB).*?ETA\s+(\S+)')
+
+_ERROR_PATTERNS = [
+    (re.compile(r'版权地区受限|not available in your (country|region)|geo.?block|geo.?restrict|only available in', re.I),
+     "El video no está disponible en la region del servidor."),
+    (re.compile(r'private video|video is private', re.I),
+     "El video es privado."),
+    (re.compile(r'video unavailable|has been removed|no longer available|been deleted', re.I),
+     "El video no existe o fue eliminado."),
+    (re.compile(r'age.?restrict|confirm your age|you must be', re.I),
+     "El video tiene restriccion de edad y requiere inicio de sesion."),
+    (re.compile(r'login|sign in|log in|authentication|requires? an? account', re.I),
+     "El video requiere inicio de sesion."),
+    (re.compile(r'copyright|copyright claim', re.I),
+     "El video fue bloqueado por derechos de autor."),
+    (re.compile(r'unable to extract|unsupported url|no video formats', re.I),
+     "No se pudo extraer el video. La URL puede no ser compatible."),
+    (re.compile(r'429|too many requests|rate.?limit', re.I),
+     "Demasiadas solicitudes. Intenta de nuevo en unos minutos."),
+]
+
+def _friendly_error(raw: str) -> str:
+    for pattern, msg in _ERROR_PATTERNS:
+        if pattern.search(raw):
+            return msg
+    return None
 # Títulos genéricos que yt-dlp genera cuando no hay título real (ej. "TikTok video #123")
 _GENERIC_TITLE_RE = re.compile(r'^.+\s+video\s+#[\w-]+$', re.IGNORECASE)
 
@@ -243,7 +268,8 @@ async def _download_and_send(url: str, quality: str, msg, reply_to):
         if proc.returncode != 0:
             full_err = "\n".join(output_lines)
             logger.error("yt-dlp error: %s", full_err[-1000:])
-            await msg.edit_text(f"Error al descargar:\n{full_err[-400:]}")
+            friendly = _friendly_error(full_err)
+            await msg.edit_text(friendly or f"Error al descargar:\n{full_err[-400:]}")
             return
 
         media_files = [f for f in Path(tmpdir).iterdir() if f.suffix in (".mp4", ".m4a", ".mp3", ".webm")]
