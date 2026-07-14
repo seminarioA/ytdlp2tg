@@ -24,13 +24,14 @@ MAX_BYTES = 1_900 * 1024 * 1024 if TG_LOCAL_URL else 49 * 1024 * 1024
 # { (chat_id, msg_id): url }  — guardado hasta que el usuario elige calidad
 PENDING: dict[tuple[int, int], str] = {}
 
-QUALITIES = {
-    "1080": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best",
-    "720":  "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]/best",
-    "480":  "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]/best",
-    "360":  "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]/best",
-    "audio": "bestaudio[ext=m4a]/bestaudio",
-}
+_FALLBACK_FORMATS = [(1080, 1920), (720, 1280), (480, 854), (360, 640)]
+
+
+def _fmt_for_height(h: int) -> str:
+    return (
+        f"bestvideo[height<={h}][ext=mp4]+bestaudio[ext=m4a]"
+        f"/best[height<={h}][ext=mp4]/best[height<={h}]/best"
+    )
 
 _PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%\s+of\s+([\d.]+)(MiB|KiB|GiB).*?ETA\s+(\S+)')
 
@@ -173,14 +174,55 @@ def _bar(pct: float) -> str:
     return "█" * filled + "░" * (10 - filled)
 
 
-def _quality_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("1080p (1920×1080)", callback_data="dl:1080")],
-        [InlineKeyboardButton("✅ 720p (1280×720)", callback_data="dl:720")],
-        [InlineKeyboardButton("480p (854×480)",   callback_data="dl:480")],
-        [InlineKeyboardButton("360p (640×360)",   callback_data="dl:360")],
-        [InlineKeyboardButton("🎵 Solo audio",    callback_data="dl:audio")],
-    ])
+async def _fetch_formats(url: str) -> list[tuple[int, int]]:
+    """Returns available (height, width) pairs descending by height, bucketed to 1080/720/480/360."""
+    cmd = [
+        "yt-dlp", "--dump-json", "--no-playlist",
+        "--extractor-args", "youtube:player_client=android,web",
+        url,
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except Exception:
+        return []
+    if proc.returncode != 0:
+        return []
+    try:
+        info = json.loads(stdout)
+    except Exception:
+        return []
+
+    # Collect best width per height for video-only or video+audio formats
+    best: dict[int, int] = {}
+    for f in (info.get("formats") or []):
+        h, w = f.get("height"), f.get("width")
+        if h and w and f.get("vcodec", "none") != "none":
+            if h not in best or w > best[h]:
+                best[h] = w
+
+    # Bucket into 1080/720/480/360 — pick the best format that fits each bucket
+    result, seen = [], set()
+    for bucket in (1080, 720, 480, 360):
+        candidates = [(h, w) for h, w in best.items() if h <= bucket]
+        if not candidates:
+            continue
+        h, w = max(candidates, key=lambda x: x[0])
+        if h not in seen:
+            seen.add(h)
+            result.append((h, w))
+    return result
+
+
+def _quality_keyboard(formats: list[tuple[int, int]]) -> InlineKeyboardMarkup:
+    rows = []
+    for i, (h, w) in enumerate(formats):
+        label = f"{'✅ ' if i == 0 else ''}{h}p ({w}×{h})"
+        rows.append([InlineKeyboardButton(label, callback_data=f"dl:{h}")])
+    rows.append([InlineKeyboardButton("🎵 Solo audio", callback_data="dl:audio")])
+    return InlineKeyboardMarkup(rows)
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -205,7 +247,7 @@ def _is_tiktok(url: str) -> bool:
 
 async def _download_and_send(url: str, quality: str, msg, reply_to):
     is_audio = quality == "audio"
-    fmt = QUALITIES[quality]
+    fmt = "bestaudio[ext=m4a]/bestaudio" if is_audio else _fmt_for_height(int(quality))
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cmd = [
@@ -332,7 +374,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _download_and_send(url=text, quality="1080", msg=msg, reply_to=update.message)
         return
 
-    msg = await update.message.reply_text("Elige la calidad:", reply_markup=_quality_keyboard())
+    msg = await update.message.reply_text("Obteniendo formatos...")
+    formats = await _fetch_formats(text) or _FALLBACK_FORMATS
+    await msg.edit_text("Elige la calidad:", reply_markup=_quality_keyboard(formats))
     PENDING[(update.effective_chat.id, msg.message_id)] = text
 
 
