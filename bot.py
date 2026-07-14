@@ -178,7 +178,7 @@ async def _fetch_formats(url: str) -> list[tuple[int, int]]:
     """Returns available (height, width) pairs descending by height, bucketed to 1080/720/480/360."""
     cmd = [
         "yt-dlp", "--dump-json", "--no-playlist",
-        "--extractor-args", "youtube:player_client=android,web",
+        "--extractor-args", "youtube:player_client=android_vr",
         url,
     ]
     try:
@@ -255,7 +255,7 @@ async def _download_and_send(url: str, quality: str, msg, reply_to):
             "-f", fmt,
             *(["--merge-output-format", "mp4"] if not is_audio else []),
             "--no-playlist",
-            "--extractor-args", "youtube:player_client=android,web",
+            "--extractor-args", "youtube:player_client=android_vr",
             "--write-info-json",
             "--newline",
             "-o", f"{tmpdir}/video.%(ext)s",
