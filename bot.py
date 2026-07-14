@@ -175,13 +175,11 @@ def _bar(pct: float) -> str:
 
 def _quality_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("360p",  callback_data="dl:360"),
-            InlineKeyboardButton("480p",  callback_data="dl:480"),
-            InlineKeyboardButton("720p ✓", callback_data="dl:720"),
-            InlineKeyboardButton("1080p", callback_data="dl:1080"),
-        ],
-        [InlineKeyboardButton("🎵 Solo audio", callback_data="dl:audio")],
+        [InlineKeyboardButton("1080p (1920×1080)", callback_data="dl:1080")],
+        [InlineKeyboardButton("✅ 720p (1280×720)", callback_data="dl:720")],
+        [InlineKeyboardButton("480p (854×480)",   callback_data="dl:480")],
+        [InlineKeyboardButton("360p (640×360)",   callback_data="dl:360")],
+        [InlineKeyboardButton("🎵 Solo audio",    callback_data="dl:audio")],
     ])
 
 
